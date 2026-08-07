@@ -340,7 +340,9 @@
                 <label for="searchLimit">Number of results:</label>
                 <input type="number" id="searchLimit" value="10" min="1" max="50">
             </div>
-            <button onclick="performSearch()">Search Weather Data</button>
+            <button id="searchButton" onclick="performSearch()">
+                Search Weather Data
+            </button>
             
             <div class="loading" id="searchLoading">
                 <div class="spinner"></div>

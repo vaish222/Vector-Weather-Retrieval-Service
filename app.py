@@ -245,23 +245,35 @@ def search_weather():
         query_embedding = model.encode([query])[0].tolist()
         
         # Search weather_embeddings using pgvector cosine similarity
-        results = lakebase.run_query(
-            """
-            SELECT 
-                d.id,
-                d.location,
-                d.headline,
-                d.source_type,
-                d.narrative_text,
-                e.chunk_text,
-                1 - (e.embedding <=> %s::vector) AS similarity
-            FROM weather_embeddings e
-            JOIN weather_documents d ON d.id = e.document_id
-            ORDER BY e.embedding <=> %s::vector
-            LIMIT %s
-            """,
-            (json.dumps(query_embedding), json.dumps(query_embedding), top_k)
-        )
+        # NOTE: psycopg2 doesn't properly bind vector parameters in ORDER BY,
+        # so we use a temp table workaround
+        with lakebase.get_connection() as conn:
+            with conn.cursor() as cur:
+                # Create temp table and insert query vector
+                cur.execute("""
+                    CREATE TEMP TABLE IF NOT EXISTS query_vec (vec vector(384));
+                    DELETE FROM query_vec;
+                    INSERT INTO query_vec (vec) VALUES (%s::vector);
+                """, (json.dumps(query_embedding),))
+                
+                # Search using JOIN to temp table
+                cur.execute("""
+                    SELECT 
+                        d.id,
+                        d.location,
+                        d.headline,
+                        d.source_type,
+                        d.narrative_text,
+                        e.chunk_text,
+                        1 - (e.embedding <=> q.vec) AS similarity
+                    FROM weather_embeddings e
+                    JOIN weather_documents d ON d.id = e.document_id
+                    CROSS JOIN query_vec q
+                    ORDER BY e.embedding <=> q.vec
+                    LIMIT %s
+                """, (top_k,))
+                
+                results = cur.fetchall()
         
         # Format results
         formatted_results = [
