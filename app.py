@@ -234,7 +234,9 @@ def search_weather():
     try:
         data = request.get_json() or {}
         query = data.get("query", "").strip()
-        top_k = min(max(data.get("top_k", 5), 1), 20)  # clamp to [1, 20]
+        limit = data.get("limit", data.get("top_k", 10))
+        top_k = min(max(limit, 1), 20)  
+        # clamp to [1, 20]
         
         if not query:
             return jsonify({"error": "query required"}), 400
