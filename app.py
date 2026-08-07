@@ -239,11 +239,8 @@ def search_weather():
         if not query:
             return jsonify({"error": "query required"}), 400
         
-        if not _embedding_model:
-            return jsonify({"error": "Embedding model not loaded"}), 500
-        
-        # Embed the query
-        query_embedding = _get_embedding_model().encode([query])[0].tolist()
+        model = _get_embedding_model()
+        query_embedding = model.encode([query])[0].tolist()
         
         # Search weather_embeddings using pgvector cosine similarity
         results = lakebase.run_query(
