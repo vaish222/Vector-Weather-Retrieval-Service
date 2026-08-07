@@ -67,9 +67,11 @@ Semantic search over embeddings:
 ```json
 {
   "query": "risk of flooding near rivers",
-  "top_k": 5
+  "limit": 5
 }
 ```
+
+**Note:** Accepts both `limit` and `top_k` parameters (both clamped to [1, 20]).
 Returns:
 ```json
 {
