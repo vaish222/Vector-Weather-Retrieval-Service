@@ -296,7 +296,7 @@ def list_weather_documents():
         "SELECT id, location, headline, source_type, narrative_text, synced_at FROM weather_documents ORDER BY synced_at DESC LIMIT %s",
         (limit,),
     )
-    return jsonify(rows)
+    return jsonify({"documents": rows})
 
 
 if __name__ == '__main__':
