@@ -432,38 +432,49 @@
 
         // Perform semantic search
         async function performSearch() {
-            const query = document.getElementById('searchQuery').value.trim();
-            const limit = parseInt(document.getElementById('searchLimit').value);
-            
-            if (!query) {
-                showError('searchError', 'Please enter a search query');
-                return;
-            }
-            
-            hideMessages('searchError');
-            document.getElementById('searchResults').innerHTML = '';
+        const query = document.getElementById('searchQuery').value.trim();
+        const topK = parseInt(document.getElementById('searchLimit').value) || 5;
+
+        if (!query) {
+            showError('searchError', 'Please enter a search query');
+            return;
+        }
+
+        hideMessages('searchError');
+        document.getElementById('searchResults').innerHTML = '';
+
+        const button = document.getElementById('searchButton');
+
+        try {
             showLoading('searchLoading', true);
-            document.querySelector('#searchResults').previousElementSibling.querySelector('button').disabled = true;
-            
-            try {
-                const response = await fetch(`${API_BASE}/weather/search`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query, limit })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error || 'Search failed');
-                }
-                
-                displaySearchResults(data.results);
-            } catch (error) {
-                showError('searchError', `Search error: ${error.message}`);
-            } finally {
-                showLoading('searchLoading', false);
-                document.querySelector('#searchResults').previousElementSibling.querySelector('button').disabled = false;
+            button.disabled = true;
+
+            const response = await fetch(`${API_BASE}/weather/search`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: query,
+                    top_k: topK
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Search failed');
+            }
+
+            displaySearchResults(data.results);
+
+        } catch (error) {
+            console.error('Search error:', error);
+            showError('searchError', `Search error: ${error.message}`);
+
+        } finally {
+            showLoading('searchLoading', false);
+            button.disabled = false;
             }
         }
 
