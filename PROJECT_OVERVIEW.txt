@@ -1,0 +1,244 @@
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                  WEATHER RETRIEVAL SERVICE                            ║
+║              Semantic Search Pipeline - COMPLETE                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+📦 PROJECT STRUCTURE
+────────────────────────────────────────────────────────────────────────
+
+Vector-Weather-Retrieval-Service/
+│
+├── 📁 sql/                          ← NEW! Database schema files
+│   ├── 00_setup.sql                 Master setup (run this first)
+│   ├── 01_weather_documents.sql     Main weather data table
+│   ├── 02_weather_embeddings.sql    Vector embeddings + HNSW index
+│   ├── 03_helper_functions.sql      Utility functions
+│   └── README.md                    SQL documentation
+│
+├── 📁 templates/                    ← NEW! Web UI
+│   └── index.html                   Modern responsive interface
+│
+├── 📁 notebooks/
+│   └── ingest_weather_embeddings.py Generate embeddings
+│
+├── 📄 app.py                        Flask REST API ✓
+├── 📄 weather_client.py             NWS API client ✓
+├── 📄 lakebase.py                   Postgres helpers ✓
+├── 📄 requirements.txt              Dependencies ✓
+├── 📄 app.yaml                      Databricks App config
+├── 📄 demo.py                       Usage examples
+├── 📄 README.md                     Project docs
+├── 📄 DEPLOYMENT_GUIDE.md           Deployment options
+└── 📄 BUILD_SUMMARY.txt             Architecture notes
+
+
+🗄️ DATABASE SCHEMA
+────────────────────────────────────────────────────────────────────────
+
+TABLE: weather_documents
+┌─────────────────────────────────────────────────────────────┐
+│ • Stores raw weather data from NWS API                      │
+│ • Supports alerts (warnings, watches) and forecasts         │
+│ • JSONB payload for raw API responses                       │
+│ • Indexed on location, source_type, expires_at              │
+│ • embedded flag tracks which need embeddings                │
+└─────────────────────────────────────────────────────────────┘
+
+TABLE: weather_embeddings
+┌─────────────────────────────────────────────────────────────┐
+│ • Stores 384-dim vector embeddings                          │
+│ • Text chunks (800 chars, 100 overlap)                      │
+│ • HNSW index for fast cosine similarity search              │
+│ • Foreign key to weather_documents (CASCADE delete)         │
+│ • Model: sentence-transformers/all-MiniLM-L6-v2             │
+└─────────────────────────────────────────────────────────────┘
+
+VIEWS:
+  • active_weather_alerts    - Currently active alerts
+  • recent_forecasts         - Forecasts from last 7 days
+  • embedding_coverage       - Progress tracking by location
+
+FUNCTIONS:
+  • cleanup_expired_documents(days)  - Remove old data
+  • get_document_stats()             - System statistics
+  • mark_document_embedded(id)       - Update embedding flag
+  • search_similar_weather(...)      - Semantic search
+
+
+🎨 WEB INTERFACE
+────────────────────────────────────────────────────────────────────────
+
+index.html features:
+  🔍 Semantic Search        - Natural language weather queries
+  📥 Data Sync              - Fetch from NWS API by location
+  📄 Document Browser       - View synced weather data
+  📊 Statistics Dashboard   - System metrics and insights
+  
+Design:
+  • Modern gradient UI (purple/blue theme)
+  • Fully responsive (mobile-friendly)
+  • Real-time API calls with loading states
+  • Error handling and success messages
+  • Tab-based navigation
+
+
+🔌 API ENDPOINTS
+────────────────────────────────────────────────────────────────────────
+
+GET  /                      Serve web UI
+GET  /healthz               Health check
+POST /weather/sync          Sync weather from NWS
+POST /weather/search        Semantic similarity search
+GET  /weather/documents     List recent documents
+GET  /weather/stats         System statistics (optional)
+
+
+📊 DATA FLOW
+────────────────────────────────────────────────────────────────────────
+
+   1. USER INPUT              2. FETCH & STORE           3. EMBED
+   ┌──────────┐              ┌──────────┐               ┌──────────┐
+   │ Location │──────────────│ NWS API  │───────────────│ Chunking │
+   │ (lat,lon)│              │ Alerts   │               │  800ch   │
+   └──────────┘              │ Forecast │               │  100 ovl │
+                             └──────────┘               └──────────┘
+                                   │                           │
+                                   ▼                           ▼
+                          ┌────────────────┐         ┌──────────────┐
+                          │weather_documents│        │sentence-trans│
+                          │    (Postgres)   │        │   former     │
+                          └────────────────┘         └──────────────┘
+                                                            │
+                                                            ▼
+                                                   ┌─────────────────┐
+                                                   │weather_embeddings│
+                                                   │  vector(384)    │
+                                                   │  HNSW index     │
+                                                   └─────────────────┘
+
+   4. SEARCH                 5. RETRIEVE               6. DISPLAY
+   ┌──────────┐              ┌──────────┐             ┌──────────┐
+   │ Query    │──────────────│ Embed    │─────────────│ Ranked   │
+   │ "severe  │              │ Query    │             │ Results  │
+   │  storms" │              │          │             │ + Score  │
+   └──────────┘              └──────────┘             └──────────┘
+                                   │                           ▲
+                                   ▼                           │
+                             ┌──────────┐              ┌──────────┐
+                             │ pgvector │──────────────│ Join to  │
+                             │ <=> op   │              │documents │
+                             │ HNSW idx │              │          │
+                             └──────────┘              └──────────┘
+
+
+✅ WHAT'S WORKING
+────────────────────────────────────────────────────────────────────────
+
+✓ Weather client (tested with Chicago forecast)
+✓ NWS API integration (alerts + forecasts)
+✓ Lakebase connection helpers
+✓ SQL schema (complete with indexes)
+✓ Web UI (ready to deploy)
+✓ All dependencies installed
+✓ Documentation (README, SQL docs, deployment guide)
+
+
+⚠️  KNOWN ISSUES
+────────────────────────────────────────────────────────────────────────
+
+• Flask API won't run in serverless compute (FIPS/OpenSSL conflict)
+  SOLUTION: Deploy as Databricks App or use notebook workflow
+
+
+🚀 DEPLOYMENT OPTIONS
+────────────────────────────────────────────────────────────────────────
+
+Option 1: Databricks App (RECOMMENDED for production)
+  $ databricks apps deploy
+  → Full REST API with web UI
+  → No FIPS restrictions
+  → Automatic scaling and auth
+
+Option 2: Notebook Workflow (Development)
+  → Import modules directly in notebooks
+  → Schedule with Databricks Jobs
+  → Full control over execution
+
+Option 3: Local Development
+  $ python app.py
+  → Works on local machine
+  → Test before deployment
+
+
+📋 QUICK START CHECKLIST
+────────────────────────────────────────────────────────────────────────
+
+□ 1. Set up Lakebase database
+     psql -h <host> -d <db> -f sql/00_setup.sql
+
+□ 2. Configure lakebase.py with connection details
+     (host, database, credentials)
+
+□ 3. Deploy Flask app
+     databricks apps deploy
+     OR
+     python app.py (local)
+
+□ 4. Open web UI
+     http://localhost:8080 or <app-url>
+
+□ 5. Sync weather data
+     Use "Sync Data" tab or POST /weather/sync
+
+□ 6. Generate embeddings
+     python notebooks/ingest_weather_embeddings.py
+
+□ 7. Test semantic search
+     Use "Semantic Search" tab in UI
+
+
+📚 RESOURCES
+────────────────────────────────────────────────────────────────────────
+
+Documentation:
+  • README.md               - Project overview
+  • sql/README.md           - Database schema details
+  • DEPLOYMENT_GUIDE.md     - Deployment options and troubleshooting
+
+Code Examples:
+  • demo.py                 - End-to-end usage example
+  • weather_client.py       - NWS API integration patterns
+
+Configuration:
+  • requirements.txt        - Python dependencies
+  • app.yaml                - Databricks App config
+
+
+🎯 EXAMPLE QUERIES
+────────────────────────────────────────────────────────────────────────
+
+Semantic Search Examples:
+  • "severe thunderstorm warnings with high winds"
+  • "flooding alerts near rivers"
+  • "heat advisory for urban areas"
+  • "winter storm watches with heavy snow"
+  • "tornado warnings issued tonight"
+
+SQL Query Examples:
+  -- Find active severe alerts
+  SELECT * FROM active_weather_alerts 
+  WHERE severity IN ('Extreme', 'Severe');
+
+  -- Get embedding statistics
+  SELECT * FROM get_document_stats();
+
+  -- Clean up old data
+  SELECT cleanup_expired_documents(30);
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                    PROJECT READY FOR DEPLOYMENT! 🎉
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
