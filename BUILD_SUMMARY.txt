@@ -1,0 +1,123 @@
+
+================================================================================
+WEATHER RETRIEVAL SERVICE - BUILD COMPLETE ✓
+================================================================================
+
+Built a complete end-to-end semantic search pipeline for weather data.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 COMPONENTS CREATED:
+
+1. weather_client.py
+   - Fetches data from api.weather.gov (NWS API)
+   - Active alerts (warnings, watches, advisories)
+   - Forecast narratives (daily and hourly)
+   - Normalizes into document records with stable IDs
+
+2. ingest_weather_embeddings.py
+   - Reads unembedded documents from Lakebase
+   - Chunks narrative text (800 chars, 100 overlap)
+   - Generates embeddings using sentence-transformers/all-MiniLM-L6-v2 (384-dim)
+   - Writes to weather_embeddings table with pgvector HNSW index
+
+3. app.py (Flask REST API)
+   - POST /weather/sync - Fetch and store weather data
+   - POST /weather/search - Semantic search over embeddings
+   - GET /weather/documents - List synced documents
+   - GET /healthz - Health check
+
+4. lakebase.py (existing)
+   - Connection helper for Databricks Lakebase (managed Postgres)
+
+5. requirements.txt (updated)
+   - Added: sentence-transformers, pgvector, torch
+
+6. README.md (complete documentation)
+   - Architecture overview
+   - Setup instructions
+   - Usage examples
+
+7. demo.py
+   - End-to-end demo script
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🗄️  DATABASE SCHEMA:
+
+weather_documents:
+  - id (TEXT PRIMARY KEY)
+  - location, source_type, headline, event
+  - narrative_text (TEXT) ← main content for embedding
+  - issued_at, effective_at, expires_at (TIMESTAMPTZ)
+  - temperature, wind_speed, wind_direction
+  - payload (JSONB) - raw API response
+  - synced_at, embedded (BOOLEAN)
+
+weather_embeddings:
+  - id (SERIAL PRIMARY KEY)
+  - document_id (FK to weather_documents)
+  - chunk_index, chunk_text
+  - embedding (vector(384)) ← pgvector type
+  - model_name, created_at
+  - HNSW index on embedding for fast cosine similarity search
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 QUICK START:
+
+1. Install dependencies:
+   pip install -r requirements.txt
+
+2. Configure Lakebase (store connection URL in Databricks Secrets):
+   databricks secrets put-secret database lakebase-url
+
+3. Run the Flask API:
+   python app.py
+
+4. Sync weather data (Chicago & Austin):
+   curl -X POST http://localhost:8080/weather/sync \
+     -H "Content-Type: application/json" \
+     -d '{"locations": ["41.8781,-87.6298", "30.2672,-97.7431"], "limit": 50}'
+
+5. Generate embeddings:
+   python notebooks/ingest_weather_embeddings.py
+
+6. Search:
+   curl -X POST http://localhost:8080/weather/search \
+     -H "Content-Type: application/json" \
+     -d '{"query": "flash flood risk this weekend", "top_k": 5}'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 KEY FEATURES:
+
+✓ No API key required (free NWS API)
+✓ Rich unstructured text (perfect for embedding)
+✓ Chunking handles long alert descriptions
+✓ pgvector HNSW index for sub-linear search
+✓ Cosine similarity ranking
+✓ Returns location, headline, and matching text chunks
+✓ Handles both alerts and forecasts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 EXAMPLE QUERIES:
+
+"flash flood risk this weekend"
+"severe thunderstorm warnings"
+"temperature forecast for next week"
+"risk of flooding near rivers"
+"high wind warnings"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 NEXT STEPS:
+
+1. Run the demo: python demo.py
+2. Deploy as Databricks App: databricks bundle deploy
+3. Add more locations to weather/sync
+4. Experiment with different search queries
+5. Monitor embedding quality and adjust chunk size if needed
+
+================================================================================
