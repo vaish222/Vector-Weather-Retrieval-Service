@@ -101,6 +101,46 @@ def _current_user_email() -> str:
 def healthz():
     return jsonify({"status": "ok"})
 
+@app.route('/admin/initialize-db', methods=['POST'])
+def initialize_database():
+    """Initialize the database schema - creates all tables, indexes, and functions."""
+    try:
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        # Get the project directory
+        project_dir = Path(__file__).parent
+        
+        # Run the initialization script
+        result = subprocess.run(
+            [sys.executable, str(project_dir / 'initialize_db.py')],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=str(project_dir)
+        )
+        
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': 'Database initialized successfully!',
+                'output': result.stdout
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Database initialization failed',
+                'error': result.stderr,
+                'output': result.stdout
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 @app.errorhandler(Exception)
 def handle_exception(err):
     """Ensure all unhandled errors return JSON (not an HTML error page),
